@@ -14,20 +14,19 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-gmqtt = "^0.6.10"
-aiohue = "^2.5.1"
-pydantic = "^1.9.2"
+python = "^3.11"
+aiomqtt = "^2.5.1"
+aiohue = "^4.8.1"
+pydantic = "^2.0"
 click = "^8.1.3"
-aiohttp = "^3.8.1"
-tomli = { version = "^2.0.1", python = "<=3.11" }
+aiohttp = "^3.9"
 
 [tool.poetry.dev-dependencies]
 ruff = "*"
 mypy = "*"
 pytest = "*"
 pytest-cov = "*"
-pytest-asyncio = "^0.15.1"
+pytest-asyncio = "^0.21"
 
 [tool.poetry.scripts]
 hue2mqtt = 'hue2mqtt.app:app'
@@ -37,8 +36,6 @@ requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
 [tool.mypy]
-mypy_path = "stubs"
-
 warn_unused_ignores = true
 warn_return_any = true
 
@@ -56,8 +53,8 @@ disallow_untyped_decorators = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["gmqtt.*"]
-disallow_any_explicit = false
+module = ["aiomqtt.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["aiohue.*"]
@@ -96,5 +93,8 @@ ignore = [
     "S101",    # S101 Use of `assert` detected
 ]
 
-target-version = "py38"
+target-version = "py311"
 line-length = 90
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

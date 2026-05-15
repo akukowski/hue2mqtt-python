@@ -3,32 +3,27 @@ Configuration schema for Astoria.
 
 Common to all components.
 """
+import tomllib
 from pathlib import Path
 from typing import IO, Optional
 
-from pydantic import BaseModel, parse_obj_as
-
-# Backwards compatibility for TOML in stdlib from Python 3.11
-try:
-    import tomllib  # type: ignore[import,unused-ignore]
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[import,no-redef,unused-ignore]
+from pydantic import BaseModel, TypeAdapter
+from pydantic.config import ConfigDict
 
 
 class HueBridgeInfo(BaseModel):
     """MQTT Broker Information."""
 
+    model_config = ConfigDict(extra="forbid")
+
     ip: str
     username: str
-
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
 
 
 class MQTTBrokerInfo(BaseModel):
     """MQTT Broker Information."""
+
+    model_config = ConfigDict(extra="forbid")
 
     host: str
     port: int
@@ -39,22 +34,14 @@ class MQTTBrokerInfo(BaseModel):
     topic_prefix: str = "hue2mqtt"
     force_protocol_version_3_1: bool = False
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
-
 
 class Hue2MQTTConfig(BaseModel):
     """Config schema for Hue2MQTT."""
 
+    model_config = ConfigDict(extra="forbid")
+
     mqtt: MQTTBrokerInfo
     hue: HueBridgeInfo
-
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
 
     @classmethod
     def _get_config_path(cls, config_str: Optional[str] = None) -> Path:
@@ -83,4 +70,5 @@ class Hue2MQTTConfig(BaseModel):
     @classmethod
     def load_from_file(cls, fh: IO[bytes]) -> "Hue2MQTTConfig":
         """Load the config from a file."""
-        return parse_obj_as(cls, tomllib.load(fh))
+        adapter: TypeAdapter[Hue2MQTTConfig] = TypeAdapter(cls)
+        return adapter.validate_python(tomllib.load(fh))

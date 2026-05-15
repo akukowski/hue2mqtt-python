@@ -7,40 +7,40 @@ from pydantic import BaseModel, Field, create_model
 class LightBaseState(BaseModel):
     """The base attributes of a light state."""
 
-    on: Optional[bool]
+    on: Optional[bool] = None
 
-    alert: Optional[str]
-    bri: Optional[int]
-    ct: Optional[int]
-    effect: Optional[str]
-    hue: Optional[int]
-    sat: Optional[int]
-    xy: Optional[Tuple[float, float]]
-    transitiontime: Optional[str]
+    alert: Optional[str] = None
+    bri: Optional[int] = None
+    ct: Optional[int] = None
+    effect: Optional[str] = None
+    hue: Optional[int] = None
+    sat: Optional[int] = None
+    xy: Optional[Tuple[float, float]] = None
+    transitiontime: Optional[str] = None
 
 
 class LightSetState(LightBaseState):
     """The settable states of a light."""
 
-    bri_inc: Optional[int]
-    sat_inc: Optional[int]
-    hue_inc: Optional[int]
-    ct_inc: Optional[int]
-    xy_inc: Optional[Tuple[float, float]]
+    bri_inc: Optional[int] = None
+    sat_inc: Optional[int] = None
+    hue_inc: Optional[int] = None
+    ct_inc: Optional[int] = None
+    xy_inc: Optional[Tuple[float, float]] = None
 
 
 class GroupSetState(LightSetState):
     """The settable states of a group."""
 
-    scene: Optional[str]
+    scene: Optional[str] = None
 
 
 class LightState(LightBaseState):
     """The State of a light that we can read."""
 
-    reachable: Optional[bool]
-    color_mode: Optional[str]
-    mode: Optional[str]
+    reachable: Optional[bool] = None
+    color_mode: Optional[str] = None
+    mode: Optional[str] = None
 
 
 class LightInfo(BaseModel):
@@ -49,7 +49,7 @@ class LightInfo(BaseModel):
     id: int  # noqa: A003
     name: str
     uniqueid: str
-    state: Optional[LightState]
+    state: Optional[LightState] = None
 
     manufacturername: str
     modelid: str
@@ -158,7 +158,7 @@ class SensorInfo(BaseModel):
 
     productname: str
     uniqueid: str
-    swversion: Optional[str]
+    swversion: Optional[str] = None
 
     state: SensorState  # type: ignore[valid-type]
     capabilities: Any
