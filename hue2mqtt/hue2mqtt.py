@@ -189,7 +189,7 @@ class Hue2MQTT:
             ),
             xy=(
                 (light.color.xy.x, light.color.xy.y)
-                if light.color is not None
+                if light.color is not None and light.color.xy is not None
                 else None
             ),
         )
@@ -235,20 +235,23 @@ class Hue2MQTT:
             lights = self._bridge.groups.zone.get_lights(group.id)
 
         light_ids = [light.id for light in lights]
+        group_class = (
+            group.metadata.archetype.value
+            if group.metadata.archetype is not None
+            else None
+        )
 
-        return GroupInfo(
-            id=group.id,
-            name=group.metadata.name,
-            lights=light_ids,
-            sensors=[],
-            type=group.type.value,
-            state=GroupState(all_on=any_on, any_on=any_on),
-            group_class=(
-                group.metadata.archetype.value
-                if group.metadata.archetype is not None
-                else None
-            ),
-            action=action,
+        return GroupInfo.model_validate(
+            {
+                "id": group.id,
+                "name": group.metadata.name,
+                "lights": light_ids,
+                "sensors": [],
+                "type": group.type.value,
+                "state": GroupState(all_on=any_on, any_on=any_on),
+                "class": group_class,
+                "action": action,
+            },
         )
 
     def _sensor_to_info(self, sensor: SensorResource) -> Optional[SensorInfo]:
