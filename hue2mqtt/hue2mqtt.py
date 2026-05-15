@@ -145,7 +145,6 @@ class Hue2MQTT:
         """Publish info about the Hue Bridge."""
         if online:
             LOGGER.info(f"Bridge Name: {self._bridge.config.name}")
-            LOGGER.info(f"Bridge MAC: {self._bridge.config.mac_address}")
             LOGGER.info(
                 f"Bridge Software Version: {self._bridge.config.software_version}"
             )
@@ -311,15 +310,10 @@ class Hue2MQTT:
             state = adapter.validate_python(json.loads(payload))
             LOGGER.info(f"Updating light {light_id}")
 
-            brightness: Optional[float] = None
-            if state.bri is not None:
-                # Map 0-254 (V1-style) to 0-100 (V2)
-                brightness = state.bri / 254 * 100
-
             await self._bridge.lights.set_state(
                 light_id,
                 on=state.on,
-                brightness=brightness,
+                brightness=state.bri,
                 color_xy=state.xy,
                 color_temp=state.ct,
             )
@@ -352,14 +346,10 @@ class Hue2MQTT:
             state = adapter.validate_python(json.loads(payload))
             LOGGER.info(f"Updating group {group.metadata.name}")
 
-            brightness: Optional[float] = None
-            if state.bri is not None:
-                brightness = state.bri / 254 * 100
-
             await self._bridge.groups.grouped_light.set_state(
                 grouped_light_id,
                 on=state.on,
-                brightness=brightness,
+                brightness=state.bri,
                 color_xy=state.xy,
                 color_temp=state.ct,
             )
