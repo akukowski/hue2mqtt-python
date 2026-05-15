@@ -353,8 +353,6 @@ class Hue2MQTT:
                 color_xy=state.xy,
                 color_temp=state.ct,
             )
-        except IndexError:
-            LOGGER.warning(f"Unknown group id: {group_id}")
         except json.JSONDecodeError:
             LOGGER.warning(f"Bad JSON on light request: {payload}")
         except TypeError:
