@@ -15,8 +15,11 @@ from types import FrameType
 from typing import Match, Optional
 
 import aiohue
+from aiohue.v1.groups import Group
+from aiohue.v1.lights import Light
+from aiohue.v1.sensors import GenericSensor
 from aiohttp.client import ClientSession
-from pydantic import ValidationError, parse_obj_as
+from pydantic import TypeAdapter, ValidationError
 
 from hue2mqtt import __version__
 from hue2mqtt.messages import BridgeInfo, Hue2MQTTStatus
@@ -32,6 +35,9 @@ from .config import Hue2MQTTConfig
 from .mqtt.wrapper import MQTTWrapper
 
 LOGGER = logging.getLogger(__name__)
+
+# Polling interval in seconds for reading bridge state updates
+POLL_INTERVAL = 5
 
 loop = asyncio.get_event_loop()
 
@@ -69,8 +75,8 @@ class Hue2MQTT:
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
 
-            # Suppress INFO messages from gmqtt
-            logging.getLogger("gmqtt").setLevel(logging.WARNING)
+            # Suppress INFO messages from aiomqtt
+            logging.getLogger("aiomqtt").setLevel(logging.WARNING)
 
         if welcome_message:
             LOGGER.info(f"Hue2MQTT v{__version__} - {self.__doc__}")
@@ -101,12 +107,12 @@ class Hue2MQTT:
         async with ClientSession() as websession:
             try:
                 await self._setup_bridge(websession)
-            except aiohue.errors.Unauthorized:
+            except aiohue.Unauthorized:
                 LOGGER.error("Bridge rejected username. Please use --discover")
                 self.halt()
                 return
             await self._publish_bridge_status()
-            await self.main(websession)
+            await self.main()
 
         LOGGER.info("Disconnecting from MQTT Broker")
         await self._publish_bridge_status(online=False)
@@ -118,10 +124,10 @@ class Hue2MQTT:
 
     async def _setup_bridge(self, websession: ClientSession) -> None:
         """Connect to the Hue Bridge."""
-        self._bridge = aiohue.Bridge(
+        self._bridge = aiohue.HueBridgeV1(
             self.config.hue.ip,
-            websession,
-            username=self.config.hue.username,
+            app_key=self.config.hue.username,
+            websession=websession,
         )
         LOGGER.info(f"Connecting to Hue Bridge at {self.config.hue.ip}")
         await self._bridge.initialize()
@@ -153,7 +159,7 @@ class Hue2MQTT:
         self._mqtt.publish(f"group/{group.id}", group, retain=True)
 
     def publish_sensor(self, sensor: SensorInfo) -> None:
-        """Publish information about a group to MQTT."""
+        """Publish information about a sensor to MQTT."""
         self._mqtt.publish(f"sensor/{sensor.uniqueid}", sensor, retain=True)
 
     async def handle_set_light(self, match: Match[str], payload: str) -> None:
@@ -165,9 +171,10 @@ class Hue2MQTT:
             light = self._bridge.lights[light_id]
             if light.uniqueid == uniqueid:
                 try:
-                    state = parse_obj_as(LightSetState, json.loads(payload))
+                    adapter: TypeAdapter[LightSetState] = TypeAdapter(LightSetState)
+                    state = adapter.validate_python(json.loads(payload))
                     LOGGER.info(f"Updating {light.name}")
-                    await light.set_state(**state.dict())
+                    await light.set_state(**state.model_dump(exclude_none=True))
                 except json.JSONDecodeError:
                     LOGGER.warning(f"Bad JSON on light request: {payload}")
                 except TypeError:
@@ -183,9 +190,10 @@ class Hue2MQTT:
 
         try:
             group = self._bridge.groups[groupid]
-            state = parse_obj_as(GroupSetState, json.loads(payload))
+            adapter: TypeAdapter[GroupSetState] = TypeAdapter(GroupSetState)
+            state = adapter.validate_python(json.loads(payload))
             LOGGER.info(f"Updating group {group.name}")
-            await group.set_action(**state.dict())
+            await group.set_action(**state.model_dump(exclude_none=True))
         except IndexError:
             LOGGER.warning(f"Unknown group id: {groupid}")
         except json.JSONDecodeError:
@@ -195,39 +203,71 @@ class Hue2MQTT:
         except ValidationError as e:
             LOGGER.warning(f"Invalid light state: {e}")
 
-    async def main(self, websession: ClientSession) -> None:
-        """Main method of the data component."""
-        # Publish initial info about lights
+    async def main(self) -> None:
+        """Main polling loop: publish initial state and then poll for updates."""
+        # Publish initial state for all resources
+        self._publish_all()
+
+        # Track raw state for change detection
+        prev_lights = {k: dict(v.raw) for k, v in self._bridge.lights._items.items()}
+        prev_groups = {k: dict(v.raw) for k, v in self._bridge.groups._items.items()}
+        prev_sensors = {
+            k: dict(v.raw)
+            for k, v in self._bridge.sensors._items.items()
+            if "uniqueid" in v.raw and "productname" in v.raw
+        }
+
+        while True:
+            await asyncio.sleep(POLL_INTERVAL)
+
+            try:
+                await self._bridge.lights.update()
+                await self._bridge.groups.update()
+                await self._bridge.sensors.update()
+            except Exception as exc:
+                LOGGER.warning(f"Failed to update bridge resources: {exc}")
+                continue
+
+            # Publish lights that changed
+            for idx, light_raw in self._bridge.lights._items.items():
+                raw = dict(light_raw.raw)
+                if raw != prev_lights.get(idx):
+                    light = LightInfo(id=int(idx), **light_raw.raw)
+                    self.publish_light(light)
+                    prev_lights[idx] = raw
+
+            # Publish groups that changed
+            for idx, group_raw in self._bridge.groups._items.items():
+                raw = dict(group_raw.raw)
+                if raw != prev_groups.get(idx):
+                    group = GroupInfo(id=int(idx), **group_raw.raw)
+                    self.publish_group(group)
+                    prev_groups[idx] = raw
+
+            # Publish sensors that changed
+            for idx, sensor_raw in self._bridge.sensors._items.items():
+                if "uniqueid" not in sensor_raw.raw or "productname" not in sensor_raw.raw:
+                    LOGGER.debug(f"Ignoring virtual sensor: {sensor_raw.name}")
+                    continue
+                raw = dict(sensor_raw.raw)
+                if raw != prev_sensors.get(idx):
+                    sensor = SensorInfo(id=int(idx), **sensor_raw.raw)
+                    self.publish_sensor(sensor)
+                    prev_sensors[idx] = raw
+
+    def _publish_all(self) -> None:
+        """Publish initial info about all bridge resources."""
         for idx, light_raw in self._bridge.lights._items.items():
-            light = LightInfo(id=idx, **light_raw.raw)
+            light = LightInfo(id=int(idx), **light_raw.raw)
             self.publish_light(light)
 
-        # Publish initial info about groups
         for idx, group_raw in self._bridge.groups._items.items():
-            group = GroupInfo(id=idx, **group_raw.raw)
+            group = GroupInfo(id=int(idx), **group_raw.raw)
             self.publish_group(group)
 
-        # Publish initial info about sensors
         for idx, sensor_raw in self._bridge.sensors._items.items():
             if "uniqueid" in sensor_raw.raw and "productname" in sensor_raw.raw:
-                sensor = SensorInfo(id=idx, **sensor_raw.raw)
+                sensor = SensorInfo(id=int(idx), **sensor_raw.raw)
                 self.publish_sensor(sensor)
             else:
                 LOGGER.debug(f"Ignoring virtual sensor: {sensor_raw.name}")
-
-        # Publish updates
-        try:
-            async for updated_object in self._bridge.listen_events():
-                if isinstance(updated_object, aiohue.groups.Group):
-                    group = GroupInfo(id=updated_object.id, **updated_object.raw)
-                    self.publish_group(group)
-                elif isinstance(updated_object, aiohue.lights.Light):
-                    light = LightInfo(id=updated_object.id, **updated_object.raw)
-                    self.publish_light(light)
-                elif isinstance(updated_object, aiohue.sensors.GenericSensor):
-                    sensor = SensorInfo(id=updated_object.id, **updated_object.raw)
-                    self.publish_sensor(sensor)
-                else:
-                    LOGGER.warning("Unknown object")
-        except GeneratorExit:
-            LOGGER.warning("Exited loop")

@@ -3,8 +3,8 @@
 import sys
 
 import aiohttp
+from aiohue import LinkButtonNotPressed, create_app_key
 from aiohue.discovery import discover_nupnp
-from aiohue.errors import LinkButtonNotPressed
 
 
 async def discover_bridge() -> None:
@@ -21,8 +21,8 @@ async def discover_bridge() -> None:
             bridge = bridges[0]
             print("Found bridge at", bridge.host)
             try:
-                await bridge.create_user("hue2mqtt")
-                print("Your username is", bridge.username)
+                username = await create_app_key(bridge.host, "hue2mqtt")
+                print("Your username is", username)
                 print("Please add these details to hue2mqtt.toml")
             except LinkButtonNotPressed:
                 print(
