@@ -242,14 +242,16 @@ class Hue2MQTT:
         )
 
         return GroupInfo(
-            id=group.id,
-            name=group.metadata.name,
-            lights=light_ids,
-            sensors=[],
-            type=group.type.value,
-            state=GroupState(all_on=any_on, any_on=any_on),
-            **{"class": group_class},
-            action=action,
+            **{
+                "id": group.id,
+                "name": group.metadata.name,
+                "lights": light_ids,
+                "sensors": [],
+                "type": group.type.value,
+                "state": GroupState(all_on=any_on, any_on=any_on),
+                "class": group_class,
+                "action": action,
+            },
         )
 
     def _sensor_to_info(self, sensor: SensorResource) -> Optional[SensorInfo]:
