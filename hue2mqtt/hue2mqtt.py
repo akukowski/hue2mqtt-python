@@ -231,7 +231,7 @@ class Hue2MQTT:
             # Publish lights that changed
             for idx, light_raw in self._bridge.lights._items.items():
                 raw = dict(light_raw.raw)
-                if raw != prev_lights.get(idx):
+                if prev_lights.get(idx) != raw:
                     light = LightInfo(id=int(idx), **light_raw.raw)
                     self.publish_light(light)
                     prev_lights[idx] = raw
@@ -239,7 +239,7 @@ class Hue2MQTT:
             # Publish groups that changed
             for idx, group_raw in self._bridge.groups._items.items():
                 raw = dict(group_raw.raw)
-                if raw != prev_groups.get(idx):
+                if prev_groups.get(idx) != raw:
                     group = GroupInfo(id=int(idx), **group_raw.raw)
                     self.publish_group(group)
                     prev_groups[idx] = raw
@@ -250,13 +250,17 @@ class Hue2MQTT:
                     LOGGER.debug(f"Ignoring virtual sensor: {sensor_raw.name}")
                     continue
                 raw = dict(sensor_raw.raw)
-                if raw != prev_sensors.get(idx):
+                if prev_sensors.get(idx) != raw:
                     sensor = SensorInfo(id=int(idx), **sensor_raw.raw)
                     self.publish_sensor(sensor)
                     prev_sensors[idx] = raw
 
     def _publish_all(self) -> None:
-        """Publish initial info about all bridge resources."""
+        """Publish initial info about all bridge resources.
+
+        Note: accesses `._items` on aiohue v1 resource controllers, which is
+        the only available way to iterate over all resources by ID.
+        """
         for idx, light_raw in self._bridge.lights._items.items():
             light = LightInfo(id=int(idx), **light_raw.raw)
             self.publish_light(light)

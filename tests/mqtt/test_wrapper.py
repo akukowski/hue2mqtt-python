@@ -1,7 +1,7 @@
 """Test the MQTT Wrapper class."""
 
 import asyncio
-from typing import Match
+from typing import AsyncIterator, Match
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -64,7 +64,7 @@ def _make_mock_client() -> MagicMock:
     return mock_client
 
 
-async def _async_iter(items: list) -> None:  # type: ignore[return]
+async def _async_iter(items: list) -> AsyncIterator[object]:
     """Async generator yielding items."""
     for item in items:
         yield item

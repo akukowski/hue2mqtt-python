@@ -134,9 +134,6 @@ class MQTTWrapper:
 
         self._connected = False
 
-        if self._connected:
-            raise RuntimeError("Disconnection was attempted, but was unsuccessful")
-
     async def _message_loop(self) -> None:
         """Process incoming MQTT messages in the background."""
         assert self._client is not None
