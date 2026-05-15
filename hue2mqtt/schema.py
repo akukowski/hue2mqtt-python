@@ -10,7 +10,7 @@ class LightBaseState(BaseModel):
     on: Optional[bool] = None
 
     alert: Optional[str] = None
-    bri: Optional[int] = None
+    bri: Optional[float] = None
     ct: Optional[int] = None
     effect: Optional[str] = None
     hue: Optional[int] = None
@@ -46,9 +46,8 @@ class LightState(LightBaseState):
 class LightInfo(BaseModel):
     """Information about a light."""
 
-    id: int  # noqa: A003
+    id: str  # noqa: A003
     name: str
-    uniqueid: str
     state: Optional[LightState] = None
 
     manufacturername: str
@@ -69,10 +68,10 @@ class GroupState(BaseModel):
 class GroupInfo(BaseModel):
     """Information about a light group."""
 
-    id: int  # noqa: A003
+    id: str  # noqa: A003
     name: str
-    lights: List[int]
-    sensors: List[int]
+    lights: List[str]
+    sensors: List[str]
     type: str  # noqa: A003
     state: GroupState
 
@@ -150,15 +149,14 @@ SensorState = create_model(
 class SensorInfo(BaseModel):
     """Information about a sensor."""
 
-    id: int  # noqa: A003
+    id: str  # noqa: A003
     name: str
     type: str  # noqa: A003
     modelid: str
     manufacturername: str
 
     productname: str
-    uniqueid: str
     swversion: Optional[str] = None
 
     state: SensorState  # type: ignore[valid-type]
-    capabilities: Any
+    capabilities: Optional[Any] = None

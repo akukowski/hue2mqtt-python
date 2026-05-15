@@ -25,9 +25,9 @@ class TestLightState:
 
     def test_full_state(self) -> None:
         """Test creating a fully populated LightState."""
-        state = LightState(on=True, bri=200, ct=300, hue=100, sat=150)
+        state = LightState(on=True, bri=100.0, ct=300, hue=100, sat=150)
         assert state.on is True
-        assert state.bri == 200
+        assert state.bri == 100.0
         assert state.ct == 300
 
     def test_serialise_excludes_none(self) -> None:
@@ -55,9 +55,9 @@ class TestLightSetState:
 
     def test_model_dump_exclude_none(self) -> None:
         """Test that model_dump(exclude_none=True) omits None values."""
-        state = LightSetState(on=False, bri=100)
+        state = LightSetState(on=False, bri=100.0)
         dumped = state.model_dump(exclude_none=True)
-        assert dumped == {"on": False, "bri": 100}
+        assert dumped == {"on": False, "bri": 100.0}
 
 
 class TestGroupSetState:
@@ -79,15 +79,14 @@ class TestLightInfo:
 
     def _make_light_data(self) -> dict:
         return {
-            "id": 1,
+            "id": "abc-123-def-456",
             "name": "Bedroom Lamp",
-            "uniqueid": "aa:bb:cc:dd:00:01-0b",
             "manufacturername": "Philips",
             "modelid": "LCA001",
             "productname": "Hue color lamp",
-            "type": "Extended color light",
+            "type": "light",
             "swversion": "1.90.1",
-            "state": {"on": True, "bri": 254, "reachable": True},
+            "state": {"on": True, "bri": 100.0, "reachable": True},
         }
 
     def test_valid_light_info(self) -> None:
@@ -95,7 +94,7 @@ class TestLightInfo:
         data = self._make_light_data()
         light = LightInfo(**data)
         assert light.name == "Bedroom Lamp"
-        assert light.uniqueid == "aa:bb:cc:dd:00:01-0b"
+        assert light.id == "abc-123-def-456"
         assert light.state is not None
         assert light.state.on is True
 
@@ -119,14 +118,14 @@ class TestGroupInfo:
 
     def _make_group_data(self) -> dict:
         return {
-            "id": 1,
+            "id": "group-uuid-001",
             "name": "Living room",
-            "lights": [1, 2, 3],
+            "lights": ["light-uuid-1", "light-uuid-2", "light-uuid-3"],
             "sensors": [],
-            "type": "Room",
+            "type": "room",
             "state": {"all_on": False, "any_on": True},
-            "class": "Living room",
-            "action": {"on": True, "bri": 200},
+            "class": "living_room",
+            "action": {"on": True, "bri": 78.7},
         }
 
     def test_valid_group_info(self) -> None:
@@ -134,14 +133,14 @@ class TestGroupInfo:
         data = self._make_group_data()
         group = GroupInfo(**data)
         assert group.name == "Living room"
-        assert group.lights == [1, 2, 3]
+        assert group.lights == ["light-uuid-1", "light-uuid-2", "light-uuid-3"]
         assert group.state.any_on is True
 
     def test_group_class_alias(self) -> None:
         """Test that group_class is populated from the 'class' alias."""
         data = self._make_group_data()
         group = GroupInfo(**data)
-        assert group.group_class == "Living room"
+        assert group.group_class == "living_room"
 
     def test_group_class_serialise(self) -> None:
         """Test serialisation uses 'class' alias."""
@@ -172,15 +171,14 @@ class TestSensorInfo:
 
     def _make_sensor_data(self) -> dict:
         return {
-            "id": 1,
+            "id": "sensor-uuid-001",
             "name": "Hue motion sensor 1",
-            "type": "ZLLPresence",
+            "type": "motion",
             "modelid": "SML001",
             "manufacturername": "Signify Netherlands B.V.",
             "productname": "Hue Motion",
-            "uniqueid": "00:11:22:33:44:55:66:77-02-0406",
             "swversion": "2.0",
-            "state": {"lastupdated": "2023-01-01T00:00:00", "presence": True},
+            "state": {"presence": True},
             "capabilities": {"certified": True},
         }
 
@@ -189,7 +187,7 @@ class TestSensorInfo:
         data = self._make_sensor_data()
         sensor = SensorInfo(**data)
         assert sensor.name == "Hue motion sensor 1"
-        assert sensor.uniqueid == "00:11:22:33:44:55:66:77-02-0406"
+        assert sensor.id == "sensor-uuid-001"
 
     def test_sensor_state_presence(self) -> None:
         """Test that presence state is read correctly."""
