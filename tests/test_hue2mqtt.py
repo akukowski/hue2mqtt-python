@@ -251,8 +251,8 @@ async def test_handle_set_group_unknown_group_does_not_update() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_bridge_status_online_and_offline() -> None:
-    """_publish_bridge_status should publish expected online/offline payloads."""
+async def test_publish_bridge_status_online() -> None:
+    """_publish_bridge_status should publish online payload with bridge info."""
     hue2mqtt = _make_hue2mqtt()
     hue2mqtt._bridge = SimpleNamespace(
         config=SimpleNamespace(
@@ -265,10 +265,7 @@ async def test_publish_bridge_status_online_and_offline() -> None:
     hue2mqtt._mqtt = SimpleNamespace(publish=mqtt_publish)  # type: ignore[assignment]
 
     await hue2mqtt._publish_bridge_status()
-    await hue2mqtt._publish_bridge_status(online=False)
-
     first_call = mqtt_publish.call_args_list[0]
-    second_call = mqtt_publish.call_args_list[1]
 
     assert first_call.args[0] == "status"
     assert first_call.args[1] == Hue2MQTTStatus(
@@ -279,7 +276,19 @@ async def test_publish_bridge_status_online_and_offline() -> None:
             api_version="1.2.3",
         ),
     )
-    assert second_call.args[1] == Hue2MQTTStatus(online=False)
+
+
+@pytest.mark.asyncio
+async def test_publish_bridge_status_offline() -> None:
+    """_publish_bridge_status should publish offline payload without bridge info."""
+    hue2mqtt = _make_hue2mqtt()
+    hue2mqtt._mqtt = SimpleNamespace(publish=MagicMock())  # type: ignore[assignment]
+
+    await hue2mqtt._publish_bridge_status(online=False)
+
+    call = hue2mqtt._mqtt.publish.call_args_list[0]
+    assert call.args[0] == "status"
+    assert call.args[1] == Hue2MQTTStatus(online=False)
 
 
 @pytest.mark.asyncio

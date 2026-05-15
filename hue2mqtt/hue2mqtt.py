@@ -241,8 +241,8 @@ class Hue2MQTT:
             else None
         )
 
-        return GroupInfo(
-            **{
+        return GroupInfo.model_validate(
+            {
                 "id": group.id,
                 "name": group.metadata.name,
                 "lights": light_ids,
